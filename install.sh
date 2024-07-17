@@ -85,16 +85,15 @@ ssh-add <(echo "$SSH_PRIVATE_KEY" | base64 --decode)
 # Download the environment variables file.
 rm -rf envs
 git clone git@github.com:magnusriga/envs.git
-cp -f envs/.env."${ENV_FILE_NAME}".local .env.local
-cp -f envs/.env.base .env.base
-chmod 744 .env.local
-rm -rf envs
-
 if [ ! -f "envs/.env.${ENV_FILE_NAME}.local" ]; then
   # Download the environment variables file.
   custom_echo "Error: the env folder did not have the file specified with ENV_FILE_NAME: ${ENV_FILE_NAME}."
   exit 1
 fi
+cp -f envs/.env."${ENV_FILE_NAME}".local .env.local
+cp -f envs/.env.base .env.base
+chmod 744 .env.local
+rm -rf envs
 
 # Source all environment variables from the downloaded file into the current shell.
 set -a # automatically export all variables
