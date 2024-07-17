@@ -71,16 +71,37 @@ nfront_download() {
   fi
 }
 
+sudo apt install ssh-askpass
+ssh-keyscan -t rsa github.com >>~/.ssh/known_hosts
+
+# Run ssh-agent in the background (-s).
+eval $(ssh-agent -s)
+echo "Agent now running, adding private key to ssh-agent via ssh-add..."
+
+# Add the decoded version of the private key to the ssh-agent.
+# since we added an encoded version of it to GitHub actions.
+ssh-add <(echo "$SSH_PRIVATE_KEY" | base64 --decode)
+
+if [ ! -f "envs/.env.${ENV_FILE_NAME}.local" ]; then
+  # Download the environment variables file.
+  custom_echo "Error: the env folder did not have the file specified with ENV_FILE_NAME: ${ENV_FILE_NAME}."
+  exit 1
+fi
+rm -rf envs
+git clone git@github.com:magnusriga/envs.git
+cp -f envs/.env."${ENV_FILE_NAME}".local .env.local
+chmod 744 .env.local
+
 # Download the environment variables file.
 # nfront_download -o /dev/null "$(nvm_source "script-nvm-exec")"
-touch ./.env.local
-chmod 744 ./.env.local
-curl -o ./.env.local "https://raw.githubusercontent.com/${NFRONT_GITHUB_REPO}/academy-envs/main/${ENV_FILE_NAME}"
+# touch ./.env.local
+# chmod 744 ./.env.local
+# curl -O "https://raw.githubusercontent.com/magnusriga/academy-envs/main/${ENV_FILE_NAME}"
 
 # Source all environment variables from the downloaded file into the current shell.
-set -a # automatically export all variables
-source .env.local
-set +a
+# set -a # automatically export all variables
+# source .env.local
+# set +a
 
 
 } # this ensures the entire script is downloaded #
