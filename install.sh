@@ -126,12 +126,15 @@ source ${ENV_DIR}/.env.local
 eval $(ssh-agent -s)
 echo "Agent now running..."
 ssh-add <(echo "$SSH_PRIVATE_KEY_NFRONT" | base64 --decode)
-git clone git@github.com:magnusriga/nfront.git nfront
-# Run docker compose build script
-custom_echo "Running docker compose build script..."
-source ./${SCRIPTS_DIR}/compose-build.sh -e prod
 
-# Run docker compose up script
+# Run the docker compose build script.
+custom_echo "Running docker compose build script..."
+# source ./${SCRIPTS_DIR}/compose-build.sh -e prod
+
+# Not sure why, but trying to repeat it here.
+export ENV_DIR="envs" # Exported because it is used in the compose file and the Dockerfile.
+
+# Run the docker compose up script.
 custom_echo "Running docker compose up script..."
 source ./${SCRIPTS_DIR}/compose-up.sh -e prod
 
