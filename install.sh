@@ -129,7 +129,7 @@ ssh-add <(echo "$SSH_PRIVATE_KEY_NFRONT" | base64 --decode)
 
 # Run the docker compose build script.
 custom_echo "Running docker compose build script..."
-# source ./${SCRIPTS_DIR}/compose-build.sh -e prod
+source ./${SCRIPTS_DIR}/compose-build.sh -e prod
 
 # Not sure why, but trying to repeat it here.
 export ENV_DIR="envs" # Exported because it is used in the compose file and the Dockerfile.
@@ -145,10 +145,10 @@ set +a
 # Remove the environment variables and other temp files,
 # now that container is built.
 custom_echo "Cleaning up temp folders..."
-# rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
-# rm -rf ${ENV_DIR}
-# rm -rf ${DOCKER_DIR}
-# rm -rf ${SCRIPTS_DIR}
+rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
+rm -rf ${ENV_DIR}
+rm -rf ${DOCKER_DIR}
+rm -rf ${SCRIPTS_DIR}
 
 # Clean up docker cache.
 custom_echo "Cleaning up docker cache..."
