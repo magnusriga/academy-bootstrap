@@ -120,5 +120,6 @@ rm -rf envs
 # Clean up docker cache.
 custom_echo "Cleaning up docker cache..."
 docker system prune -f
+docker system prune -f
 
 } # this ensures the entire script is downloaded #
