@@ -82,12 +82,6 @@ echo "Agent now running, adding private key to ssh-agent via ssh-add..."
 # since we added an encoded version of it to GitHub actions.
 ssh-add <(echo "$SSH_PRIVATE_KEY" | base64 --decode)
 
-if [ ! -f "envs/.env.${ENV_FILE_NAME}.local" ]; then
-  # Download the environment variables file.
-  custom_echo "Error: the env folder did not have the file specified with ENV_FILE_NAME: ${ENV_FILE_NAME}."
-  exit 1
-fi
-
 # Download the environment variables file.
 rm -rf envs
 git clone git@github.com:magnusriga/envs.git
@@ -95,6 +89,12 @@ cp -f envs/.env."${ENV_FILE_NAME}".local .env.local
 cp -f envs/.env.base .env.base
 chmod 744 .env.local
 rm -rf envs
+
+if [ ! -f "envs/.env.${ENV_FILE_NAME}.local" ]; then
+  # Download the environment variables file.
+  custom_echo "Error: the env folder did not have the file specified with ENV_FILE_NAME: ${ENV_FILE_NAME}."
+  exit 1
+fi
 
 # Source all environment variables from the downloaded file into the current shell.
 set -a # automatically export all variables
@@ -106,11 +106,13 @@ source ./scripts/compose-build.sh -e prod
 
 # Run docker compose up script
 source ./scripts/compose-up.sh -e prod
+set +a
 
 # Remove the environment variables file,
 # now that it has alrady been set in the container.
 rm .env.local
 
-set +a
+# Clean up docker cache.
+docker prune system
 
 } # this ensures the entire script is downloaded #
