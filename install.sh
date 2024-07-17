@@ -78,44 +78,72 @@ ssh-keyscan -t rsa github.com >>~/.ssh/known_hosts
 eval $(ssh-agent -s)
 echo "Agent now running, adding private key to ssh-agent via ssh-add..."
 
-# Add the decoded version of the private key to the ssh-agent.
-# since we added an encoded version of it to GitHub actions.
-ssh-add <(echo "$SSH_PRIVATE_KEY" | base64 --decode)
+
+# Name of the private repository.
+ACADEMY_BOOTSTRAP_PRIVATE="academy-bootstrap-private"
+
+# Name of the temporary directory.
+# Do not change these, the script files rely on these names.
+ENV_DIR="envs"
+DOCKER_DIR="docker"
+SCRIPTS_DIR="scripts"
+rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
+rm -rf ${ENV_DIR}
+rm -rf ${DOCKER_DIR}
+rm -rf ${SCRIPTS_DIR}
+mkdir ${ENV_DIR}
+mkdir ${DOCKER_DIR}
+mkdir ${SCRIPTS_DIR}
+
+# The environment SSH_PRIVATE_KEY_* variables contains the encoded version
+# of the private ssh keys.
+# Therefore, decode them as we add them to ssh-agent.
+# ssh-agent uses them to check against the public keys on GitHub.
+# Add one at a time, before each git clone.
+ssh-add <(echo "$SSH_PRIVATE_KEY_BOOTSTRAP" | base64 --decode)
 
 # Download the environment variables file.
-rm -rf envs
-git clone git@github.com:magnusriga/envs.git
-if ! [ -f envs/.env.${ENV_FILE_NAME}.local ]; then
+git clone git@github.com:magnusriga/academy-bootstrap-private.git
+if ! [ -f ${ACADEMY_BOOTSTRAP_PRIVATE}/${ENV_DIR}/.env.${ENV_FILE_NAME}.local ]; then
   # Download the environment variables file.
   custom_echo "Error: the env folder did not have the file specified with ENV_FILE_NAME: ${ENV_FILE_NAME}."
   exit 1
 fi
-cp -f envs/.env."${ENV_FILE_NAME}".local .env.local
-cp -f envs/.env.base .env.base
-rm -rf envs
-mkdir envs
-mv .env.local envs
-mv .env.base envs
-chmod -R 744 envs
+cp -f ${ACADEMY_BOOTSTRAP_PRIVATE}/${ENV_DIR}/.env."${ENV_FILE_NAME}".local ${ENV_DIR}/.env.local
+cp -f ${ACADEMY_BOOTSTRAP_PRIVATE}/${ENV_DIR}/.env.base ${ENV_DIR}/.env.base
+cp -fa ${ACADEMY_BOOTSTRAP_PRIVATE}/${DOCKER_DIR}/. ${DOCKER_DIR}
+cp -fa ${ACADEMY_BOOTSTRAP_PRIVATE}/${SCRIPTS_DIR}/. ${SCRIPTS_DIR}
+rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
+chmod -R 744 ${ENV_DIR}
+chmod -R 744 ${DOCKER_DIR}
+chmod -R 744 ${SCRIPTS_DIR}
 
 # Source all environment variables from the downloaded file into the current shell.
 set -a # automatically export all variables
 
-source envs/.env.local
+source ${ENV_DIR}/.env.local
 
+eval $(ssh-agent -s)
+echo "Agent now running..."
+ssh-add <(echo "$SSH_PRIVATE_KEY_NFRONT" | base64 --decode)
+git clone git@github.com:magnusriga/nfront.git nfront
 # Run docker compose build script
 custom_echo "Running docker compose build script..."
-source ./scripts/compose-build.sh -e prod
+source ./${SCRIPTS_DIR}/compose-build.sh -e prod
 
 # Run docker compose up script
 custom_echo "Running docker compose up script..."
-source ./scripts/compose-up.sh -e prod
+source ./${SCRIPTS_DIR}/compose-up.sh -e prod
+
 set +a
 
-# Remove the environment variables,
-# now that it has alrady been set in the container.
-custom_echo "Cleaning up environment variables..."
-rm -rf envs
+# Remove the environment variables and other temp files,
+# now that container is built.
+custom_echo "Cleaning up temp folders..."
+rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
+rm -rf ${ENV_DIR}
+rm -rf ${DOCKER_DIR}
+rm -rf ${SCRIPTS_DIR}
 
 # Clean up docker cache.
 custom_echo "Cleaning up docker cache..."
