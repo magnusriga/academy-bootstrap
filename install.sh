@@ -150,15 +150,15 @@ set +a
 
 # Remove the environment variables and other temp files,
 # now that container is built.
-custom_echo "Cleaning up temp folders..."
-rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
-rm -rf ${ENV_DIR}
-rm -rf ${DOCKER_DIR}
-rm -rf ${SCRIPTS_DIR}
+# custom_echo "Cleaning up temp folders..."
+# rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
+# rm -rf ${ENV_DIR}
+# rm -rf ${DOCKER_DIR}
+# rm -rf ${SCRIPTS_DIR}
 
 # Clean up docker cache.
-custom_echo "Cleaning up docker cache..."
-docker system prune -f
-docker system prune -f
+# custom_echo "Cleaning up docker cache..."
+# docker system prune -f
+# docker system prune -f
 
 } # this ensures the entire script is downloaded #
