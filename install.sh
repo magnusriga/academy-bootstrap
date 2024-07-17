@@ -16,9 +16,15 @@ if [ -z "${ENV_FILE_NAME}" ]; then
   exit 1
 fi
 
-if [ -z "${SSH_PRIVATE_KEY}" ]; then
+if [ -z "${SSH_PRIVATE_KEY_BOOTSTRAP}" ]; then
   # shellcheck disable=SC2016
-  custom_echo >&2 'Error: SSH_PRIVATE_KEY needs to be set.'
+  custom_echo >&2 'Error: SSH_PRIVATE_KEY_BOOTSTRAP needs to be set.'
+  exit 1
+fi
+
+if [ -z "${SSH_PRIVATE_KEY_NFRONT}" ]; then
+  # shellcheck disable=SC2016
+  custom_echo >&2 'Error: SSH_PRIVATE_KEY_NFRONT needs to be set.'
   exit 1
 fi
 
