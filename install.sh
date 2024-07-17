@@ -129,7 +129,7 @@ ssh-add <(echo "$SSH_PRIVATE_KEY_NFRONT" | base64 --decode)
 
 # Run the docker compose build script.
 custom_echo "Running docker compose build script..."
-# source ./${SCRIPTS_DIR}/compose-build.sh -e prod
+source ./${SCRIPTS_DIR}/compose-build.sh -e prod
 
 # Not sure why, but trying to repeat it here.
 export ENV_DIR="envs" # Exported because it is used in the compose file and the Dockerfile.
