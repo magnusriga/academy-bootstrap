@@ -87,21 +87,30 @@ if [ ! -f "envs/.env.${ENV_FILE_NAME}.local" ]; then
   custom_echo "Error: the env folder did not have the file specified with ENV_FILE_NAME: ${ENV_FILE_NAME}."
   exit 1
 fi
+
+# Download the environment variables file.
 rm -rf envs
 git clone git@github.com:magnusriga/envs.git
 cp -f envs/.env."${ENV_FILE_NAME}".local .env.local
+cp -f envs/.env.base .env.base
 chmod 744 .env.local
-
-# Download the environment variables file.
-# nfront_download -o /dev/null "$(nvm_source "script-nvm-exec")"
-# touch ./.env.local
-# chmod 744 ./.env.local
-# curl -O "https://raw.githubusercontent.com/magnusriga/academy-envs/main/${ENV_FILE_NAME}"
+rm -rf envs
 
 # Source all environment variables from the downloaded file into the current shell.
-# set -a # automatically export all variables
-# source .env.local
-# set +a
+set -a # automatically export all variables
 
+source .env.local
+
+# Run docker compose build script
+source ./scripts/compose-build.sh -e prod
+
+# Run docker compose up script
+source ./scripts/compose-up.sh -e prod
+
+# Remove the environment variables file,
+# now that it has alrady been set in the container.
+rm .env.local
+
+set +a
 
 } # this ensures the entire script is downloaded #

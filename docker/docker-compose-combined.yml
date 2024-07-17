@@ -1,0 +1,226 @@
+# version: '3.8'
+
+# ============================================================================
+# DOCKER-COMPOSE FOR: DEVELOPMENT ENVIRONMENT
+# ============================================================================
+#
+# VARIABLES
+# ----------------------------------------------------------------------------
+#
+# - $TARGET defines what stage of Dockerfile we stop at.
+#   Enables us to stop at dev stage where we can run pnpm dev (next dev),
+#   or stop at builder stage where we can run pnpm start (next start),
+#   or stop at runner stage (end of Dockerfile) where we can run node ...server.js
+#
+# - It is not possible to set envs as CLI flag with docker stack deploy command,
+#   so we start compose build and compose up processes with script, which runs
+#   "set -a" and "source variables.env", which makes environment variables from
+#   variables.env available inside this compose file.
+#
+# - These variables are taken from env files, substituted in below, and passed to:
+#   1) Dockerfile via "args", where they can be picked up with ARG.
+#   2) Container via "environment", where they can be picked up as environment variables.
+#
+# - Make sure all envs we use below (TARGET, START_COMMAND, NODE_ENV) are sourced
+#   in compose build/up start scripts.
+#
+# - args field makes args available as ARGs inside Dockerfile during build.
+# - env_file field makes envs from file available in container after running it.
+# - environment field also makes envs from file available in container after running it.
+# - Can also make environment variables available in container by defining ENVs in last stage in Dockerfile.
+# - These are NOT used for interpolation in this docker compose file.
+# - For interpolation in this file, either set --env-file flag when running docker compose,
+#   or export variables to terminal running docker compose (see scripts/)
+# - Only latter works with docker stack deploy, aka. swarm mode.
+#
+#
+# OTHER NOTES
+# ----------------------------------------------------------------------------
+#
+# - Container port MUST match port used by next-server, which is 3000.
+#
+# - Relative paths are relative from compose-file, so remember to go one up to get to root.
+#
+# - Named volumes and bind mounts persist after container is removed (and after image is rebuilt?).
+#   Anonymous volumes DO NOT persist after container is removed.
+#
+# - If you want to reuse a volume across multiple services, define named volume in top-level volumes key.
+#   Top-level volumes key is not used for bind mounts.
+#
+# - Activate init, stdin_open, and tty if you want to open long lasting container with terminal attached.
+#
+#
+# STACKS
+# ----------------------------------------------------------------------------
+#
+# - When working with services, swarms, and docker-stack.yml files,
+#   keep in mind that the tasks (containers) backing a service can be deployed on any node in a swarm,
+#   which may be a different node each time the service is updated.
+#
+# - Volumes for services, swarms, and stack files: https://docs.docker.com/compose/compose-file/compose-file-v3/#volumes-for-services-swarms-and-stack-files
+# - Docker creates anonymous volumes for each task backing one service.
+#   Anonymous volumes DO NOT persist after container is removed.
+# - Thus, if you want data (e.g. database data) to persist after containers are removed, in swarm mode,
+#   use a named volume and run tasks backing the service ONLY on host node (see below db).
+#
+# ============================================================================
+
+# https://docs.docker.com/compose/compose-file/11-extension/#example-2
+x-defaults: &defaults
+  # Activate init, stdin_open, and tty if you want to open long lasting container with terminal attached
+  # No need, as we use exec to enter container and set those options there: docker exec -it ....
+  init: true # docker run --init (Run an init (top level process) inside container that forwards signals to child processes and reaps zombie processes)
+  # stdin_open: true # docker run -i (Keep STDIN open even if not attached)
+  # tty: true        # docker run -t (Allocate a pseudo-TTY)
+  # restart: always # Only applies to compose up/run, not to stack deploy (i.e. not swarm mode)
+  deploy:
+    mode: replicated
+    replicas: 1
+    restart_policy:
+      condition: any
+      delay: 5s
+      window: 120s
+    update_config:
+      delay: 10s
+      failure_action: rollback
+      max_failure_ratio: .5
+      monitor: 5s
+      # parallelism: 1
+      parallelism: 2
+
+services:
+  nfront-academy:
+    # Grabs all defaults from above
+    # Both image and build are present:
+    # - Compose attempts to find image locally or in registry (Docker Hub or local registry)
+    # - If not found, it builds image as specified by "build"
+    image: 127.0.0.1:5000/nfront-academy
+    # dockerfile is needed if using a dockerfile with other name than Dockerfile.
+    # In this case we could have used context alone: context to define folder of Dockerfile: apps/nfront-website.
+    # https://docs.docker.com/compose/compose-file/build/#ssh
+    build:
+      # context path is relative to this compose file.
+      # When sending compose file in as stdin, it used path of shell (/dev),
+      # thus we set aboulute path here instead.
+      # ROOTDIR is set in the script that runs this compose file.
+      # ROOTDIR changes based on where the script is run from,
+      # whice might be an issue when running the script from different locations.
+      # Thus, we use a path that is relative to this compose file instead.
+      context: ../.
+      # dockerfile path is relative to context path.
+      dockerfile: ./docker/Dockerfile
+      # ssh allows git clone inside Dockerfile.
+      # ssh: https://docs.docker.com/compose/compose-file/build/#ssh
+      # Adding private git repo to Docker: https://docs.docker.com/reference/dockerfile/#adding-private-git-repositories
+      # default: Let the builder connect to the ssh-agent.
+      # ID=path: A key/value definition of an ID and the associated path. It can be either a PEM file, or path to ssh-agent socket.
+      ssh:
+        - default # mount the default ssh agent
+        # - nfront:${SSH_AUTH_SOCK}
+      args:
+        # Passed into Dockerfile and used during image build.
+        APP: nfront-academy
+        TURBO_TEAM: ${TURBO_TEAM}
+        TURBO_TOKEN: ${TURBO_TOKEN}
+      # target is used so we stop at that Dockerfile stage, because e.g. dev does not need pnpm build or standalone folder
+      target: runner
+    # Overrides default command so things don't shut down after the process ends.
+    # command: /bin/sh -c "while sleep 1000; do :; done"
+    # IMPORTANT: Container port (target) MUST match port used by next-server, which is 3000
+    # Might want to leave published unset, so Docker randomly assigns ports on host (avoids port conflict).
+    <<: *defaults
+    environment:
+      # Variables set here become available inside container.
+      # Same effect as variables sourced via env_file field.
+      - APP=nfront-academy
+    env_file:
+      # Since this is a sequence and not mapping, it is combined with base, not replaced.
+      # Makes envs from file available inside container after start.
+      # env_file path is relative to compose file.
+      # TURBO_TEAM and TURBO_TOKEN are added here.
+      - ./.env.local
+    ports:
+      # Container port MUST match port used by next-server, which is 3000.
+      # Can leave host port (published) unset, so Docker randomly assigns ports on host (avoids port conflict).
+      # However, in dev mode we only want one replica anyways, so OK to set published (host) port.
+      # Makes life easier, as we can save URL as fixed browser bookmark.
+      - target: 3000
+        published: 3001
+    # depends_on:
+    #   # depends_on is ignored when deploying stack in swarm mode with version 3 Compose file.
+    #   db:
+    #     condition: service_healthy
+    #     restart: true
+    networks:
+      # Define a network, which allows containers to communicate
+      # with each other, by using their container name as a hostname
+      - frontend
+      - backend
+    healthcheck:
+      # test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      # Path is within container, starting from WORKDIR (/app)
+      test: ['CMD', 'node', './apps/nfront-website/healthcheck.js']
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    # Test database:
+    # 1) Outside containers: docker exec -it ed9518067592 psql -U nfdbu nfdb
+    #    Or: docker exec -it <CNAME> bash +  PGPASSWORD=nfdbp psql -U nfdbu nfdb
+    # 2) In psql CLI: /l (list databases), /c nfdb (connect to nfdb), \d (list tables)
+    # 1) In app container (not db container): npx prisma db pull
+    image: postgres:latest
+    <<: *defaults
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    env_file:
+      # Since this is a sequence and not mapping, it is combined with base, not replaced.
+      # Makes envs from file available inside container after start.
+      - ${ROOTDIR}/envs/docker-dev.env
+    ports:
+      # Choose another host port than 5432, as that is often in use.
+      - '6501:5434'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - backend
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  pg_proxy:
+    image: ghcr.io/neondatabase/wsproxy:latest
+    <<: *defaults
+    environment:
+      APPEND_PORT: 'postgres:5434'
+      ALLOW_ADDR_REGEX: '.*'
+      LOG_TRAFFIC: 'true'
+    ports:
+      - '5434:80'
+    depends_on:
+      # depends_on is ignored when deploying stack in swarm mode with version 3 Compose file.
+      - db
+
+networks:
+  frontend:
+    name: nfront_frontend
+  backend:
+    name: nfront_backend
+
+volumes:
+  # Define named volumes here, if multiple services need to access them.
+  # If so, use below name in volumes filed inside services section above.
+  # dbdata:
+  # Through named volume dbdata, database files are persisted after containers are removed,
+  # and can be accessed through their volume name across services.
+  dbdata:
