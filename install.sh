@@ -79,12 +79,15 @@ eval $(ssh-agent -s)
 echo "Agent now running, adding private key to ssh-agent via ssh-add..."
 
 
+# Source all environment variables from the downloaded file into the current shell.
+set -a # automatically export all variables
+
 # Name of the private repository.
 ACADEMY_BOOTSTRAP_PRIVATE="academy-bootstrap-private"
 
 # Name of the temporary directory.
 # Do not change these, the script files rely on these names.
-ENV_DIR="envs"
+export ENV_DIR="envs" # Exported because it is used in the compose file and the Dockerfile.
 DOCKER_DIR="docker"
 SCRIPTS_DIR="scripts"
 rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
@@ -117,9 +120,6 @@ rm -rf ${ACADEMY_BOOTSTRAP_PRIVATE}
 chmod -R 744 ${ENV_DIR}
 chmod -R 744 ${DOCKER_DIR}
 chmod -R 744 ${SCRIPTS_DIR}
-
-# Source all environment variables from the downloaded file into the current shell.
-set -a # automatically export all variables
 
 source ${ENV_DIR}/.env.local
 
