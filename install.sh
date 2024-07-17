@@ -85,33 +85,40 @@ ssh-add <(echo "$SSH_PRIVATE_KEY" | base64 --decode)
 # Download the environment variables file.
 rm -rf envs
 git clone git@github.com:magnusriga/envs.git
-if [ ! -f "envs/.env.${ENV_FILE_NAME}.local" ]; then
+if ! [ -f envs/.env.${ENV_FILE_NAME}.local ]; then
   # Download the environment variables file.
   custom_echo "Error: the env folder did not have the file specified with ENV_FILE_NAME: ${ENV_FILE_NAME}."
   exit 1
 fi
 cp -f envs/.env."${ENV_FILE_NAME}".local .env.local
 cp -f envs/.env.base .env.base
-chmod 744 .env.local
 rm -rf envs
+mkdir envs
+mv .env.local envs
+mv .env.base envs
+chmod -R 744 envs
 
 # Source all environment variables from the downloaded file into the current shell.
 set -a # automatically export all variables
 
-source .env.local
+source envs/.env.local
 
 # Run docker compose build script
+custom_echo "Running docker compose build script..."
 source ./scripts/compose-build.sh -e prod
 
 # Run docker compose up script
+custom_echo "Running docker compose up script..."
 source ./scripts/compose-up.sh -e prod
 set +a
 
-# Remove the environment variables file,
+# Remove the environment variables,
 # now that it has alrady been set in the container.
-rm .env.local
+custom_echo "Cleaning up environment variables..."
+rm -rf envs
 
 # Clean up docker cache.
-docker prune system
+custom_echo "Cleaning up docker cache..."
+docker system prune -f
 
 } # this ensures the entire script is downloaded #

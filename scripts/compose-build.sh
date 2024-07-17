@@ -19,7 +19,7 @@ while getopts 'e:' flag; do
     #   exit 1
     # fi
     # SCRIPTDIR="$( cd "$( dirname "$0" )" && pwd )"
-    ROOTDIR="$(cd "$(dirname "$0")" && cd .. && pwd)"
+    ROOTDIR="$(cd "$(dirname "$0")" && pwd)"
     echo "ROOTDIR: $ROOTDIR"
     # echo "${ROOTDIR}/envs/docker-$env.env"
     # Path is relative to where script is run from, so use absolute path.
@@ -28,18 +28,18 @@ while getopts 'e:' flag; do
     # docker compose up -d
     case "${env}" in
     dev)
-      . "${ROOTDIR}/envs/docker-$env.env"
-      docker compose --progress plain -f "${ROOTDIR}/.deploy/docker-compose-$env.yml" build --no-cache
+      . "${ROOTDIR}/envs/.env.base"
+      docker compose --progress plain -f "${ROOTDIR}/docker/docker-compose-$env.yml" build --no-cache
       # docker compose -f "${ROOTDIR}/docker/docker-compose-$env.yml" up -d
       ;;
     start)
-      . "${ROOTDIR}/envs/docker-$env.env"
-      docker compose --progress plain -f "${ROOTDIR}/.deploy/docker-compose-dev.yml" build --no-cache
+      . "${ROOTDIR}/envs/.env.base"
+      docker compose --progress plain -f "${ROOTDIR}/docker/docker-compose-dev.yml" build --no-cache
       # docker compose -f "${ROOTDIR}/docker/docker-compose-dev.yml" up -d
       ;;
     prod)
       . "${ROOTDIR}/envs/.env.base"
-      docker compose --progress plain -f "${ROOTDIR}/.deploy/docker-compose-combined.yml" build --no-cache
+      docker compose --progress plain -f "${ROOTDIR}/docker/docker-compose-combined.yml" build
       # docker compose -f "${ROOTDIR}/docker/docker-compose-$env.yml" up -d
       ;;
     *)

@@ -138,7 +138,8 @@ services:
       # Makes envs from file available inside container after start.
       # env_file path is relative to compose file.
       # TURBO_TEAM and TURBO_TOKEN are added here.
-      - ./.env.local
+      - ../envs/.env.base
+      - ../envs/.env.local
     ports:
       # Container port MUST match port used by next-server, which is 3000.
       # Can leave host port (published) unset, so Docker randomly assigns ports on host (avoids port conflict).

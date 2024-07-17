@@ -48,70 +48,10 @@ ENV PATH="$PNPM_HOME:$PATH"
 # "corepack enable" sets up symlinks to pnpm in environment next to node binary.
 RUN corepack enable pnpm
 
-FROM base AS pruner
-
-# ==========================================================================
-# ENVIRONMENT VARIABLES
-# ==========================================================================
-# Set environment variables we want available in all build stages,
-# and in the final image and thus any running containers.
-
-ARG NEXT_PUBLIC_POSTHOG_KEY
-ENV NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}
-
-ARG NEXT_PUBLIC_POSTHOG_HOST
-ENV NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
-
-ARG PIPEDRIVE_API_TOKEN
-ENV PIPEDRIVE_API_TOKEN=${PIPEDRIVE_API_TOKEN}
-
-ARG CLERK_SECRET_KEY
-ENV CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
-
-ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-
-ARG CUSTOM_CACHE_HANDLER
-ENV CUSTOM_CACHE_HANDLER=${CUSTOM_CACHE_HANDLER}
-
-ARG CONTENTFUL_SPACE_ID
-ENV CONTENTFUL_SPACE_ID=${CONTENTFUL_SPACE_ID}
-
-ARG CONTENTFUL_PREVIEW_ACCESS_TOKEN
-ENV CONTENTFUL_PREVIEW_ACCESS_TOKEN=${CONTENTFUL_PREVIEW_ACCESS_TOKEN}
-
-ARG CONTENTFUL_SPACE_ID_COMPANY
-ENV CONTENTFUL_SPACE_ID_COMPANY=${CONTENTFUL_SPACE_ID_COMPANY}
-
-ARG CONTENTFUL_PREVIEW_ACCESS_TOKEN_COMPANY
-ENV CONTENTFUL_PREVIEW_ACCESS_TOKEN_COMPANY=${CONTENTFUL_PREVIEW_ACCESS_TOKEN_COMPANY}
-
-ARG CONTENTFUL_ACCESS_TOKEN
-ENV CONTENTFUL_ACCESS_TOKEN=${CONTENTFUL_ACCESS_TOKEN}
-
-ARG CONTENTFUL_ACCESS_TOKEN_COMPANY
-ENV CONTENTFUL_ACCESS_TOKEN_COMPANY=${CONTENTFUL_ACCESS_TOKEN_COMPANY}
-
-ARG CONTENTFUL_PREVIEW_SECRET
-ENV CONTENTFUL_PREVIEW_SECRET=${CONTENTFUL_PREVIEW_SECRET}
-
-ARG CONTENTFUL_PREVIEW_SECRET_COMPANY
-ENV CONTENTFUL_PREVIEW_SECRET_COMPANY=${CONTENTFUL_PREVIEW_SECRET_COMPANY}
-
-ARG MY_SECRET_TOKEN
-ENV MY_SECRET_TOKEN=${MY_SECRET_TOKEN}
-
-# ==========================================================================
-
-ARG APP
-ENV APP=${APP}
+FROM base AS cloner
 
 # Set working directory
 WORKDIR /app
-
-# Get right app from build args (see docker-compose).
-# Enables us to use one shared Dockerfile.
-ARG APP
 
 # Replace <your-major-version> with the major version installed in your repository. For example:
 # RUN yarn global add turbo@^2
@@ -167,12 +107,23 @@ RUN pnpm add -g turbo
 #
 ADD git@github.com:magnusriga/nfront.git .
 #
-RUN ls -l
+RUN ls -la
+RUN cd .. && ls -la
 # ====================================
+
+FROM cloner AS pruner
+
+# Set working directory
+WORKDIR /app
+
+ARG APP
+ENV APP=${APP}
 
 # Prune removes all files not needed to build target workspace.
 # Examples of excluded files: tsconfig, .eslintrc.js, prettierrc.js, etc.
 RUN turbo prune @nfront/${APP} --docker
+
+RUN ls -la
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
@@ -180,12 +131,8 @@ FROM base AS installer
 # Set working directory
 WORKDIR /app
 
-# Get right app from build args (see docker-compose).
-# Enables us to use one shared Dockerfile.
-ARG APP
-
-COPY .gitignore .gitignore
-COPY .syncpackrc.js .syncpackrc.js
+COPY --from=cloner /app/.gitignore .gitignore
+COPY --from=cloner /app/.syncpackrc.js .syncpackrc.js
 
 # First, copy and install the dependencies.
 # Do this before copying source files, as the latter changes more frequently
@@ -202,7 +149,7 @@ COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 # Using the explicit cache with the --mount flag saves and retreives the pnpm store content in host storage, inside Docker Engine.
 # When this layer needs to be rebuilt, or in similar calls below, Docker will use the pnpm store from that cache storage on host machine.
 RUN pnpm -v
-RUN --mount=type=cache,id=pnpm,target={PNPM_HOME}/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=${PNPM_HOME}/store pnpm install --frozen-lockfile
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM installer AS builder
@@ -210,37 +157,8 @@ FROM installer AS builder
 # Set working directory
 WORKDIR /app
 
-# Get right app from build args (see docker-compose).
-# Enables us to use one shared Dockerfile.
-# Necessary to set ENV, otherwise CMD with these variables will not work.
 ARG APP
 ENV APP=${APP}
-ARG START_COMMAND=dev
-ENV START_COMMAND=${START_COMMAND}
-
-# Then, copy source files
-COPY --from=pruner /app/out/full/ .
-COPY turbo.json turbo.json
-
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
-ENV NEXT_TELEMETRY_DISABLED 1
-
-# Copy over the .env.local file.
-COPY .env.local .
-
-# Build the project and its dependencies
-RUN pnpm turbo run build --filter=@nfront/${APP}...
-
-FROM base AS runner
-
-# Set working directory
-WORKDIR /app
-
-# Get right app from build args (see docker-compose).
-# Enables us to use one shared Dockerfile.
-ARG APP
 
 # Uncomment and use build args to enable remote caching.
 # No need to set env_file in docker-compose.yml,
@@ -250,6 +168,33 @@ ENV TURBO_TEAM=${TURBO_TEAM}
 
 ARG TURBO_TOKEN
 ENV TURBO_TOKEN=${TURBO_TOKEN}
+
+# Then, copy source files
+COPY --from=pruner /app/out/full/ .
+
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN ls -la
+
+# Copy over the .env.local file.
+COPY envs/.env.local apps/${APP}/.env.local
+RUN ls -la
+RUN ls -la apps/${APP}
+
+# Build the project and its dependencies
+RUN pnpm turbo run build --filter=@nfront/${APP}...
+
+FROM base AS runner
+
+# Set working directory
+WORKDIR /app
+
+ARG APP
+ENV APP=${APP}
+
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry

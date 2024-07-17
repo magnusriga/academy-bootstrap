@@ -28,14 +28,14 @@ while getopts 'e:' flag; do
     # docker compose up -d
     case "${env}" in
     dev)
-      . "${ROOTDIR}/envs/docker-$env.env"
+      . "${ROOTDIR}/envs/.env.base"
       # docker compose --progress plain -f "${ROOTDIR}/docker/docker-compose-$env.yml" build --no-cache
 
       # Up does not work with terminal, because up is meant to run multiple containers.
       # Here we run it in foreground (attached) mode.
       # --build means we rebuild image, but use cache.
       # -V means rebuild volumes (all node_modules folders)
-      docker compose -f "${ROOTDIR}/.deploy/docker-compose-$env.yml" up -V --build
+      docker compose -f "${ROOTDIR}/docker/docker-compose-$env.yml" up -V --build
 
       # Attached mode without building:
       # docker compose -f "${ROOTDIR}/docker/docker-compose-$env.yml" up
@@ -47,14 +47,14 @@ while getopts 'e:' flag; do
       # docker exec -it docker-nfront-website-1 bash
       ;;
     start)
-      . "${ROOTDIR}/envs/docker-$env.env"
+      . "${ROOTDIR}/envs/.env.base"
       # docker compose --progress plain -f "${ROOTDIR}/docker/docker-compose-dev.yml" build --no-cache
-      docker compose -f "${ROOTDIR}/.deploy/docker-compose-dev.yml" up
+      docker compose -f "${ROOTDIR}/docker/docker-compose-dev.yml" up
       ;;
     prod)
-      . "${ROOTDIR}/envs/.env.base.env"
+      . "${ROOTDIR}/envs/.env.base"
       # docker compose --progress plain -f "${ROOTDIR}/docker/docker-compose-$env.yml" build --no-cache
-      docker compose -f "${ROOTDIR}/.deploy/docker-compose-combined.yml" up -d
+      docker compose -f "${ROOTDIR}/docker/docker-compose-combined.yml" up -d
       ;;
     *)
       echo "Unexpected option for flag -e: '${env}'. Options: dev | start | prod"
