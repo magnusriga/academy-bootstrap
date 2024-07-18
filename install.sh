@@ -135,6 +135,7 @@ ssh-add <(echo "$SSH_PRIVATE_KEY_NFRONT" | base64 --decode)
 
 # Run the docker compose build script.
 custom_echo "Running docker compose build script..."
+OPTIND=1 # Needed to reset the getopts index, since we source the script.
 source ./${SCRIPTS_DIR}/compose-build.sh -e prod
 
 # Not sure why, but trying to repeat it here.
@@ -142,6 +143,7 @@ export ENV_DIR="envs" # Exported because it is used in the compose file and the 
 
 # Run the docker compose up script.
 custom_echo "Running docker compose up script..."
+OPTIND=1 # Needed to reset the getopts index, since we source the script.
 source ./${SCRIPTS_DIR}/compose-up.sh -e prod
 
 custom_echo "Done with Docker tasks."
