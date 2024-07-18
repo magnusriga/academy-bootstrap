@@ -128,6 +128,7 @@ chmod -R 744 ${DOCKER_DIR}
 chmod -R 744 ${SCRIPTS_DIR}
 
 source ${ENV_DIR}/.env.local
+source ${ENV_DIR}/.env.base
 
 eval $(ssh-agent -s)
 echo "Agent now running..."
@@ -139,7 +140,7 @@ OPTIND=1 # Needed to reset the getopts index, since we source the script.
 source ./${SCRIPTS_DIR}/compose-build.sh -e prod
 
 # Not sure why, but trying to repeat it here.
-export ENV_DIR="envs" # Exported because it is used in the compose file and the Dockerfile.
+# export ENV_DIR="envs" # Exported because it is used in the compose file and the Dockerfile.
 
 # Run the docker compose up script.
 custom_echo "Running docker compose up script..."
